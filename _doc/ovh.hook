@@ -105,13 +105,19 @@ waitns() {
 
 add_challenge() {
   [ -z "$CH_TXT_VALUE" ] && return 1
-  $APEX_SCRIPT domain zone newrecord $APEX --field TXT --target "$CH_TXT_VALUE" --sub _acme-challenge --ttl 60 --json >&2
+  [ -z "$CH_HOSTNAME" ] && return 1
+  if [ "$APEX" == "$CH_HOSTNAME" ] ; then
+      challenge_sub="_acme-challenge"
+  else
+      challenge_sub="_acme-challenge.$(echo "$CH_HOSTNAME"|sed -e "s/.$APEX//")"
+  fi
+  $APEX_SCRIPT domain zone newrecord $APEX --field TXT --target "$CH_TXT_VALUE" --sub $challenge_sub --ttl 60 --json >&2
   $APEX_SCRIPT domain zone reload $APEX
 }
 
 remove_challenge() {
   [ -z "$CH_TXT_VALUE" ] && return 1
-  recid=$($APEX_SCRIPT domain zone getrecords $APEX 2>&1 | while read id rec data ; do if [ "$rec" == "_acme-challenge.${APEX}" ] ; then echo $id ; fi ; done)
+  recid=$($APEX_SCRIPT domain zone getrecords $APEX 2>&1 | while read id rec data ; do if [ "$rec" == "_acme-challenge.${CH_HOSTNAME}" ] ; then echo $id ; fi ; done)
   for id in $recid ; do
     $APEX_SCRIPT domain zone delrecord $APEX $id >&2
   done
